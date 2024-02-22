@@ -1,6 +1,14 @@
 "use strict";
 
-import {getData} from "/src/data" 
+import {getFlightData} from "/src/data" 
+import {animate} from "/src/graphics"
 
-// Load data
-getData()
+const flights = getFlightData();
+animate();
+
+// Once flights resolves, remove loading screen
+flights.then((v) => {
+    document.getElementById("loading").classList.add("hidden");
+  });
+
+// Remove loading screen
