@@ -5,6 +5,7 @@
     "dev": "vite"
   },
   "dependencies": {
+    "@maptiler/sdk": "^1.2.1",
     "axios": "^1.6.7",
     "three": "^0.161.0"
   },
