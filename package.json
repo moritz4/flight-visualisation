@@ -7,6 +7,7 @@
   "dependencies": {
     "@maptiler/sdk": "^1.2.1",
     "axios": "^1.6.7",
+    "everpolate": "^0.0.3",
     "three": "^0.161.0"
   },
   "devDependencies": {

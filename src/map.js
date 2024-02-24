@@ -2,11 +2,12 @@
 
 import * as maptilersdk from '@maptiler/sdk';
 import * as THREE from 'three';
-import {flights} from "/src/main";
+import {clock, initScene} from "/src/animation";
 
 // Yes, this key is public :(
 maptilersdk.config.apiKey = 'ogwS8Hd1hP8slKpFpC1H';
 
+// Function to create a new map instance
 export function getMap(){
     const map = new maptilersdk.Map({
         container: 'map',
@@ -24,30 +25,13 @@ export function getMap(){
     return(map)
 }
 
-function addLines(scene) {
-    
-    for (var key of Object.keys(flights)) {
-        const points = [];
-
-        for (let i = 0; i < flights[key].time.length; i++) {
-            const model = maptilersdk.MercatorCoordinate.fromLngLat([flights[key].lon[i], flights[key].lat[i]], flights[key].alt[i] * 0.3048);
-            points.push( new THREE.Vector3( model.x, model.y, model.z ) );
-
-            const geometry = new THREE.BufferGeometry().setFromPoints( points );
-            const material = new THREE.LineBasicMaterial( { color: 0x0000ff, linewidth: 1 } );
-            const line = new THREE.Line( geometry, material );
-
-            scene.add(line);
-        }
-    }
-}
-
 // configuration of the custom layer for a 3D model per the CustomLayerInterface
 const customLayer = {
         id: '3d-model',
         type: 'custom',
         renderingMode: '3d',
         onAdd: function (map, gl) {
+            // Create THREE renderer, camera and scene
             this.renderer = new THREE.WebGLRenderer({
                 canvas: map.getCanvas(),
                 context: gl,
@@ -57,17 +41,16 @@ const customLayer = {
             this.camera = new THREE.PerspectiveCamera();
             this.map = map;
 
-            // Add lines
-            addLines(this.scene)
+            // Initialise scene
+            initScene(this.scene)
             
-
             this.renderer.autoClear = false;
         },
         render: function (gl, matrix) {
+            clock.advanceClock();
             this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix);
             this.renderer.resetState();
             this.renderer.render(this.scene, this.camera);
             this.map.triggerRepaint();
         }
 };
-
