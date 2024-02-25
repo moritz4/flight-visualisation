@@ -12,7 +12,7 @@ maptilersdk.config.apiKey = 'ogwS8Hd1hP8slKpFpC1H';
 export function getMap(){
     const map = new maptilersdk.Map({
         container: 'map',
-        style: maptilersdk.MapStyle.STREETS,
+        style: "8edebff4-c9fc-4f7a-a53b-766aee392c21", //variant of OUTDOOR DARK
         zoom: 9,
         center: [-0.1829, 51.5057],
         pitch: 60,
