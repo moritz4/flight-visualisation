@@ -3,6 +3,7 @@
 import * as maptilersdk from '@maptiler/sdk';
 import * as THREE from 'three';
 import {clock, initScene} from "/src/animation";
+import { animateScene } from './animation';
 
 // Yes, this key is public :(
 maptilersdk.config.apiKey = 'ogwS8Hd1hP8slKpFpC1H';
@@ -24,6 +25,8 @@ export function getMap(){
 
     return(map)
 }
+
+const timer = new THREE.Clock();
 
 // configuration of the custom layer for a 3D model per the CustomLayerInterface
 const customLayer = {
@@ -47,7 +50,9 @@ const customLayer = {
             this.renderer.autoClear = false;
         },
         render: function (gl, matrix) {
-            clock.advanceClock();
+            const delta = timer.getDelta();
+            clock.advanceClock(delta);
+            animateScene(this.scene)
             this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix);
             this.renderer.resetState();
             this.renderer.render(this.scene, this.camera);

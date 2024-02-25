@@ -15,8 +15,14 @@ axios.get(PATH)
   // Kepp only the response
   flights = response.data;
   
+  // Keep only first 5 flights for debug
+  //flights = Object.fromEntries(Object.entries(flights).slice(0,5))
+
+
   // Add curves and position functions to the flights object
   initFlights(flights);
+
+  console.log("Loaded " + Object.keys(flights).length + " flights")
   
   // Init the map
   const map = getMap();

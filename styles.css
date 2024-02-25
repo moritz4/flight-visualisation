@@ -7,6 +7,24 @@ body {
 
 canvas {
     display: block; /* fix necessary to remove space at bottom of canvas */
+    z-index: 50;
+}
+
+#time {
+    position: fixed;
+    z-index: 100;
+    left: 20px;
+
+    font-family: 'Montserrat', sans-serif;
+    font-size: 20px;
+    font-weight: 500;
+
+}
+
+#button {
+    position: fixed;
+    left: 10px;
+    top: 25px;
     z-index: 100;
 }
 

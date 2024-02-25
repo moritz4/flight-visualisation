@@ -2,16 +2,22 @@
 
 import * as THREE from 'three';
 import * as maptilersdk from '@maptiler/sdk';
+import {unix, format} from 'dayjs'
 import {linear} from "everpolate";
 import {flights} from "/src/main"
 
 // Create clock object to keep time
 export const clock = {
-    step: 1, 
+    step: 1000, // 1 = real time, 2 = x2, 3 = x3 etc.
     t: 0, 
     start: Infinity, 
     stop:0, 
-    advanceClock: function(){this.t = this.t + this.step}}
+    advanceClock: function(delta){this.t = this.t + this.step * delta}}
+
+// Function which returns mecator coordinates given lat lon and alt
+function fromLatLonAlt(lat, lon, alt) {
+    return(maptilersdk.MercatorCoordinate.fromLngLat([lon, lat], alt))
+}
 
 // Function to add position and other extras to the flights object
 export function initFlights(flights) {
@@ -34,49 +40,59 @@ export function initFlights(flights) {
         // Add curve
         const flight_points = [];
         for (let i = 0; i < flights[key].time.length; i++) {
-            const model = maptilersdk.MercatorCoordinate.fromLngLat([flights[key].lon[i], flights[key].lat[i]], flights[key].alt[i]);
+            const model = fromLatLonAlt(flights[key].lat[i], flights[key].lon[i], flights[key].alt[i]);
             flight_points.push( new THREE.Vector3( model.x, model.y, model.z ) );
         }
         const curve = new THREE.CatmullRomCurve3(flight_points);
         flights[key]["curve"] = curve;
         
         // Add curve object (visual representation of the curve)
-        const points = curve.getPoints( 200 );
+        const points = curve.getPoints( 300 );
         const geometry = new THREE.BufferGeometry().setFromPoints( points );
-        const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
+        const material = new THREE.LineBasicMaterial( { color: 0xff0000, transparent: true, opacity: 0.2 } );
         const curveObject = new THREE.Line( geometry, material );
         flights[key]["curveObject"] = curveObject
 
-        // Add a function to get the current position of the flight, given a time t
-        flights[key]["getPosition"] = function(t) {
-            // If t is out of bounds return undefined
-            if (t < this.start || t > this.stop) { return(undefined) }
-            
-            // Create an evenly spaced vector
-            function linStep(cardinality) {
-                var arr = [];
-                var step = (1 - 0) / (cardinality - 1);
-                for (var i = 0; i < cardinality; i++) {
-                  arr.push(0 + (step * i));
-                }
-                return arr;
-              }
-
-            // Use linear interpolation to get the u value from the time
-            const u = linear(t, this.time, linStep(this.time.length))[0];
-            const point = this.curve.getPointAt(u);
-            return(point);
-        }
+        //Add an indiator for whether the point of the plane has been added or not
+        flights[key]["pointAdded"] = false;
+        flights[key]["curveAdded"] = false;
     }
+
+    // Update the clock again to set the current time to the start time
+    clock.t = clock.start
 }
 
-// Function 
+// Function which is run once at the start
 export function initScene(scene) {
-    for (var key of Object.keys(flights).slice(0,200)) {
-        scene.add(flights[key].curveObject);
-    }
-}
-
-export function animateScene() {
     return;
 }
+
+export function animateScene(scene) {    
+    // Set the clock display on screen
+    document.getElementById("time").innerHTML = unix(clock.t).format('DD/MM/YYYY HH:mm')
+
+    
+    // Loop through all flights
+    for (var key of Object.keys(flights)) {
+        animateLine(scene, key);
+    }
+}
+
+function animateLine(scene, key) {
+
+    // Add line of the flightpath if it needs to be added
+    if (flights[key].curveAdded == false && clock.t >= flights[key].start && clock.t <= flights[key].stop) {
+        scene.add(flights[key].curveObject);
+        flights[key].curveAdded = true;   
+    }
+
+    // Remove line
+    if (flights[key].curveAdded == true && (clock.t < flights[key].start || clock.t > flights[key].stop)) {
+        scene.remove(flights[key].curveObject)
+        flights[key].curveAdded = false;
+    }
+}
+
+document.getElementById("button").addEventListener("click", () => {
+    console.log("running debug")
+});
