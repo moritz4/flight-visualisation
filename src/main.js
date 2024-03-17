@@ -12,7 +12,7 @@ export let flights
 // Get JSON data
 axios.get(PATH)
 .then(response => {
-  // Kepp only the response
+  // Keep only the response
   flights = response.data;
 
   // Add curves and position functions to the flights object

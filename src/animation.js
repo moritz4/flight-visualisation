@@ -5,8 +5,10 @@ import * as maptilersdk from '@maptiler/sdk';
 import {unix, format} from 'dayjs'
 import {linear} from "everpolate";
 import {flights} from "/src/main"
+import { vertexShader, fragmentShader } from './shaders';
 
 const TRAILLENGTH = 1200; // trail length in seconds
+const LINESEGMENTS = 500;
 
 // Create clock object to keep time
 export const clock = {
@@ -47,23 +49,28 @@ export function initFlights(flights) {
         }
         const curve = new THREE.CatmullRomCurve3(flight_points);
         flights[key]["curve"] = curve;
+
         
         // Add curve object (visual representation of the curve)
-        const points = curve.getPoints( 300 );
+        const points = curve.getSpacedPoints( LINESEGMENTS );
         const geometry = new THREE.BufferGeometry().setFromPoints( points );
-        const material = new THREE.LineBasicMaterial( { color: 0xff0000, transparent: true, opacity: 0.5 } );
-        const curveObject = new THREE.Line( geometry, material );
+        // Add an attribute to each vertex which specifies the opacity of the line. Set this to all 0 for now
+        const opacity = new Float32Array(Array(LINESEGMENTS).fill(0.2))
+        geometry.setAttribute( 'opacity', new THREE.BufferAttribute( opacity, 1 ) );
+        const shaderMaterial = new THREE.ShaderMaterial({vertexShader: vertexShader, fragmentShader: fragmentShader, transparent: true, blending: THREE.AdditiveBlending, depthTest: false});
+        const curveObject = new THREE.Line( geometry, shaderMaterial );
         flights[key]["curveObject"] = curveObject;
-
+        
         // Add point object (visual representation of the plane's current position)
         const dotGeometry = new THREE.BufferGeometry();
         dotGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([curve.getPoint(0).x, curve.getPoint(0).y, curve.getPoint(0).z]), 3));
         dotGeometry.dynamic = true;
-        const dotMaterial = new THREE.PointsMaterial({ size: 10, color: 0xffffff });
+        const dotMaterial = new THREE.PointsMaterial({ size: 3, color: 0xffffff });
         const dot = new THREE.Points(dotGeometry, dotMaterial);
+        dot.frustumCulled = false;
         flights[key]["point"] = dot;
 
-        //Add an indiator for whether the point of the plane has been added or not
+        //Add an indicator for whether the point and curve of the plane has been added to scene or not
         flights[key]["pointAdded"] = false;
         flights[key]["curveAdded"] = false;
     }
@@ -73,7 +80,7 @@ export function initFlights(flights) {
 }
 
 // Function to get plane position at a time t
-function getPosition(key, t) {
+function getPosition(key, t, returnU) {
     // if plane is not in the air, it doesnt have a position yet
     if ((t < flights[key].start || t > (flights[key].stop))) {
         return(undefined);
@@ -83,7 +90,12 @@ function getPosition(key, t) {
     // x is time and y is u. To create u we need an evenly spaced vector from 0 to 1
     let linspace = Array.from({length: flights[key].time.length}, (v, i) => i/(flights[key].time.length - 1))
     const u = linear(t, flights[key].time, linspace)[0]
-    return(flights[key].curve.getPoint(u))
+
+    if (returnU) {
+        return(u);
+    }
+
+    return(flights[key].curve.getPointAt(u))
 }
 
 // Function which is run once at the start
@@ -145,5 +157,5 @@ function animatePoint(scene, key) {
 }
 
 document.getElementById("button").addEventListener("click", () => {
-    console.log(getPosition(Object.keys(flights)[1], 1708895458))
+    console.log(flights[Object.keys(flights)[1]])
 });
