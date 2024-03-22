@@ -2,13 +2,13 @@
 
 import * as THREE from 'three';
 import * as maptilersdk from '@maptiler/sdk';
-import {unix, format} from 'dayjs'
+import {unix} from 'dayjs'
 import {linear} from "everpolate";
 import {flights} from "/src/main"
 import { vertexShader, fragmentShader } from './shaders';
 
 const TRAILLENGTH = 1200; // trail length in seconds
-const LINESEGMENTS = 500;
+const LINERESOLUTION = 20000;
 
 // Create clock object to keep time
 export const clock = {
@@ -22,6 +22,14 @@ export const clock = {
 function fromLatLonAlt(lat, lon, alt) {
     return(maptilersdk.MercatorCoordinate.fromLngLat([lon, lat], alt))
 }
+
+// Create a uniform for the shader
+const uniforms = {
+    time: {
+      type: 'f', // a float
+      value: 0
+    }
+};
 
 // Function to add position and other extras to the flights object
 export function initFlights(flights) {
@@ -47,25 +55,43 @@ export function initFlights(flights) {
             const model = fromLatLonAlt(flights[key].lat[i], flights[key].lon[i], flights[key].alt[i]);
             flight_points.push( new THREE.Vector3( model.x, model.y, model.z ) );
         }
-        const curve = new THREE.CatmullRomCurve3(flight_points);
+        const curve = new THREE.CatmullRomCurve3(flight_points, false, "chordal");
         flights[key]["curve"] = curve;
 
-        
+        const nPoints = Math.floor(curve.getLength() * LINERESOLUTION);
+        console.log(nPoints);
+
         // Add curve object (visual representation of the curve)
-        const points = curve.getSpacedPoints( LINESEGMENTS );
+        const points = curve.getPoints( nPoints );
         const geometry = new THREE.BufferGeometry().setFromPoints( points );
-        // Add an attribute to each vertex which specifies the opacity of the line. Set this to all 0 for now
-        const opacity = new Float32Array(Array(LINESEGMENTS).fill(0.2))
+        // Add an attribute to each vertex which specifies the opacity of the line. Set this to all 0.5 for now
+        const opacity = new Float32Array(Array(nPoints).fill(0.2))
+        const material_g = new THREE.PointsMaterial( { color: 0x888888, size: 5} );
+        const points_g = new THREE.Points(geometry, material_g);
         geometry.setAttribute( 'opacity', new THREE.BufferAttribute( opacity, 1 ) );
-        const shaderMaterial = new THREE.ShaderMaterial({vertexShader: vertexShader, fragmentShader: fragmentShader, transparent: true, blending: THREE.AdditiveBlending, depthTest: false});
+
+
+
+        // Add an attribute to each vertex which specifies the time at which the plane is present at the vertex.
+        // The number of vertexes is LINESEGMENTS + 1
+        // So we want to create a mapping between u(curve) and actual time
+        
+        flights[key]["pointTimes"] = 55
+
+        //geometry.setAttribute( 'pointTimes', new THREE.BufferAttribute( pointTimes, 1 ) );
+
+        const shaderMaterial = new THREE.ShaderMaterial({vertexShader: vertexShader, fragmentShader: fragmentShader, transparent: true, blending: THREE.AdditiveBlending, depthTest: false, uniforms: uniforms});
         const curveObject = new THREE.Line( geometry, shaderMaterial );
-        flights[key]["curveObject"] = curveObject;
+        const group = new THREE.Group();
+        group.add( curveObject );
+        group.add( points_g );
+        flights[key]["curveObject"] = group;
         
         // Add point object (visual representation of the plane's current position)
         const dotGeometry = new THREE.BufferGeometry();
         dotGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([curve.getPoint(0).x, curve.getPoint(0).y, curve.getPoint(0).z]), 3));
         dotGeometry.dynamic = true;
-        const dotMaterial = new THREE.PointsMaterial({ size: 3, color: 0xffffff });
+        const dotMaterial = new THREE.PointsMaterial({ size: 5, color: 0xffffff });
         const dot = new THREE.Points(dotGeometry, dotMaterial);
         dot.frustumCulled = false;
         flights[key]["point"] = dot;
@@ -77,6 +103,7 @@ export function initFlights(flights) {
 
     // Update the clock again to set the current time to the start time
     clock.t = clock.start
+    uniforms.time.value = clock.t;
 }
 
 // Function to get plane position at a time t
@@ -85,6 +112,11 @@ function getPosition(key, t, returnU) {
     if ((t < flights[key].start || t > (flights[key].stop))) {
         return(undefined);
     }
+
+    // Now using the chordal
+    // Map t between 0 and 1
+    const tCurve = (t-flights[key]["start"])/(flights[key]["stop"]-flights[key]["start"])
+    return(flights[key].curve.getPoint(tCurve))
 
     // Else, use everpolate to get the u position along the curve.
     // x is time and y is u. To create u we need an evenly spaced vector from 0 to 1
@@ -106,6 +138,9 @@ export function initScene(scene) {
 export function animateScene(scene) {    
     // Set the clock display on screen
     document.getElementById("time").innerHTML = unix(clock.t).format('DD/MM/YYYY HH:mm')
+
+    // Update time in shaders
+    uniforms.time.value = clock.t;
 
     
     // Loop through all flights
