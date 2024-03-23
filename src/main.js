@@ -15,7 +15,7 @@ axios.get(PATH)
   // Keep only the response
   flights = response.data;
 
-  flights = Object.fromEntries(Object.entries(flights).slice(0,5))
+  //flights = Object.fromEntries(Object.entries(flights).slice(0,6))
 
   // Add curves and position functions to the flights object
   initFlights(flights);
@@ -23,7 +23,7 @@ axios.get(PATH)
   console.log("Loaded " + Object.keys(flights).length + " flights")
   
   // Init the map
-  const map = getMap();
+  getMap();
   
   // Remove loading screens. Make sure the delay in ms is the same as the hidden class in styles.css
   document.getElementById("loading").classList.add("hidden");
